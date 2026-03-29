@@ -46,6 +46,7 @@ function clean(txt) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\- ]/g, "")
     .trim();
 }
 
@@ -86,15 +87,14 @@ dropZone.ondrop = e => {
 };
 
 // ==========================
-// EXTRACTION OCR (CORRIGÉE)
+// EXTRACTION OCR (ULTRA ROBUSTE)
 // ==========================
 function extraire(txt) {
 
-  // 🔥 correction OCR multi-ligne
   txt = txt.replace(/\n/g, " ");
   txt = txt.replace(/\s+/g, " ");
 
-  // date
+  // DATE
   let dateMatch = txt.match(/(\d{2}\/\d{2}\/\d{4})/);
   let date = dateMatch ? dateMatch[1] : "";
 
@@ -103,20 +103,20 @@ function extraire(txt) {
     date = p[0] + "/" + p[1] + "/" + p[2].slice(-2);
   }
 
-  // vendeur
+  // VENDEUR
   let vendeurMatch = txt.match(/Envoyée par (.+?) à/i);
   let vendeur = vendeurMatch ? vendeurMatch[1] : "";
 
-  // 🔥 CLIENT FIX
+  // CLIENT
   let clientMatch = txt.match(/à\s+(.+?)\s+pour/i);
   let client = clientMatch ? clientMatch[1] : "";
 
-  // montant
+  // MONTANT
   let montantMatch = txt.match(/Montant:\s*([\d,\.]+)/i);
   let montant = montantMatch ? montantMatch[1] : 0;
 
-  // facture
-  let factureMatch = txt.match(/Note\s*:?(\d+)/i);
+  // 🔥 FACTURE (CORRIGÉ)
+  let factureMatch = txt.match(/Note\s*:\s*([A-Z0-9\-]+)/i);
   let facture = factureMatch ? factureMatch[1] : "";
 
   return {
@@ -176,8 +176,12 @@ function afficherResultat(data, res) {
     texte = "❌ Aucun résultat";
   }
 
+  let typeRecherche = data.facture ? "Facture" : "Client";
+
   document.getElementById("resultat").innerHTML = `
     <h3 style="color:${couleur}">${texte}</h3>
+
+    <b>Recherche utilisée :</b> ${typeRecherche}<br><br>
 
     Date : ${data.date}<br>
     Vendeur : ${data.vendeur}<br>
