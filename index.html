@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset="UTF-8">
+<title>Contrôle Comptabilité</title>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+
+<style>
+body {
+  background:#111;
+  color:white;
+  font-family:Arial;
+  text-align:center;
+}
+
+#dropZone {
+  border:2px dashed #ff6600;
+  padding:40px;
+  margin:20px;
+  border-radius:10px;
+}
+
+img {
+  max-width:300px;
+  margin-top:10px;
+}
+
+button {
+  padding:10px;
+  margin:5px;
+  background:#ff6600;
+  border:none;
+  border-radius:6px;
+  color:white;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Contrôle Comptabilité</h2>
+
+<div id="dropZone">Glisse une image ici</div>
+
+<img id="preview">
+
+<br><br>
+
+<button onclick="analyser()">Vérifier</button>
+
+<script>
+
+let file;
+
+const dropZone = document.getElementById("dropZone");
+
+dropZone.ondragover = e => e.preventDefault();
+
+dropZone.ondrop = e => {
+  e.preventDefault();
+  file = e.dataTransfer.files[0];
+  document.getElementById("preview").src = URL.createObjectURL(file);
+};
+
+async function analyser() {
+
+  if (!file) {
+    alert("Ajoute une image !");
+    return;
+  }
+
+  const result = await Tesseract.recognize(file, 'fra');
+  const txt = result.data.text;
+
+  const data = extraire(txt);
+
+  const res = await fetch("https://script.google.com/macros/s/AKfycbxd0neBvcwoucF8snN2MrXtesc0SIUWqlJsK4aO2fDKhsP2SBPqZirr3iIK-1QB9Lpj/exec", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
+  const text = await res.text();
+
+  if (text === "FOUND") {
+    alert("✅ Vente trouvée et validée !");
+  } else {
+    alert("❌ Vente NON trouvée !");
+  }
+}
+
+// ==========================
+// EXTRACTION
+// ==========================
+
+function extraire(txt) {
+
+  let match = txt.match(/pour\s*"?(\d+)\s*(.+?)"?(\n|$)/i);
+
+  let quantite = match ? match[1] : "";
+  let produit = match ? match[2] : "";
+
+  produit = normaliserProduit(produit);
+
+  return {
+    produit,
+    quantite
+  };
+}
+
+// ==========================
+// NORMALISATION PRODUIT
+// ==========================
+
+function normaliserProduit(p) {
+
+  if (!p) return "";
+
+  p = p.toLowerCase().trim();
+
+  p = p.replace("piza", "pizza");
+  p = p.replace("boison", "boisson");
+
+  if (p.includes("reine")) return "pizza reine";
+  if (p.includes("fromage")) return "pizza 5 fromages";
+  if (p.includes("orientale")) return "pizza orientale";
+  if (p.includes("poulet")) return "pizza poulet";
+  if (p.includes("ananas")) return "pizza ananas";
+  if (p.includes("saumon")) return "pizza saumon";
+
+  if (p.includes("boisson")) return "mix boissons";
+  if (p.includes("pizza")) return "mix pizzas";
+
+  return p;
+}
+
+</script>
+
+</body>
+</html>
