@@ -92,22 +92,29 @@ dropZone.ondrop = e => {
 function extraire(txt) {
 
   // ==========================
-  // 🔥 NORMALISATION TEXTE
+  // 🔥 NORMALISATION
   // ==========================
   txt = txt.replace(/\r/g, "");
   let lignes = txt.split("\n");
 
-  let ligneDetails = "";
+  let blocDetails = "";
 
-  // 🔥 trouver la ligne "Détails"
-  lignes.forEach(l => {
-    if (l.toLowerCase().includes("détail")) {
-      ligneDetails = l;
+  for (let i = 0; i < lignes.length; i++) {
+
+    if (lignes[i].toLowerCase().includes("détail")) {
+
+      // 🔥 prendre ligne + suivante
+      blocDetails = lignes[i];
+
+      if (lignes[i + 1]) {
+        blocDetails += " " + lignes[i + 1];
+      }
+
+      break;
     }
-  });
+  }
 
-  let ligne = ligneDetails || txt;
-
+  let ligne = blocDetails || txt;
   let ligneLower = ligne.toLowerCase();
 
   // ==========================
@@ -121,6 +128,55 @@ function extraire(txt) {
     date = p[0] + "/" + p[1] + "/" + p[2].slice(-2);
   }
 
+  // ==========================
+  // 👤 VENDEUR
+  // ==========================
+  let vendeur = "";
+
+  if (ligneLower.includes("envoyée par")) {
+    let part = ligneLower.split("envoyée par")[1];
+    vendeur = part.split("à")[0] || "";
+  }
+
+  // ==========================
+  // 🔥 CLIENT (FIX MULTILIGNE)
+  // ==========================
+  let client = "";
+
+  if (ligneLower.includes("à") && ligneLower.includes("pour")) {
+
+    let partApresA = ligneLower.split("à")[1];
+    client = partApresA.split("pour")[0];
+
+    let mots = client.trim().split(" ");
+
+    client = (mots[0] || "") + " " + (mots[1] || "");
+  }
+
+  // ==========================
+  // 💰 MONTANT
+  // ==========================
+  let montantMatch = txt.match(/Montant:\s*([\d,\.]+)/i);
+  let montant = montantMatch ? montantMatch[1] : 0;
+
+  // ==========================
+  // 🧾 FACTURE
+  // ==========================
+  let facture = "";
+  let factureMatch = txt.match(/Note\s*:\s*([A-Z0-9\-]+)/i);
+
+  if (factureMatch) {
+    facture = factureMatch[1];
+  }
+
+  return {
+    date: date,
+    vendeur: clean(vendeur),
+    client: clean(client),
+    facture: clean(facture),
+    montant: nettoyerMontant(montant)
+  };
+}
   // ==========================
   // 👤 VENDEUR
   // ==========================
