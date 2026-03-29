@@ -9,10 +9,14 @@
 
 <style>
 body { background:#111; color:white; font-family:Arial; text-align:center; }
-#dropZone { border:2px dashed #ff6600; padding:40px; margin:20px; border-radius:10px; }
+#dropZone {
+  border:2px dashed #ff6600;
+  padding:40px;
+  margin:20px;
+  border-radius:10px;
+}
 img { max-width:300px; margin-top:10px; }
 button { padding:10px; margin:5px; background:#ff6600; border:none; border-radius:6px; color:white; }
-#resultat { margin-top:20px; padding:15px; border:1px solid #444; }
 </style>
 </head>
 
@@ -20,14 +24,11 @@ button { padding:10px; margin:5px; background:#ff6600; border:none; border-radiu
 
 <h2>Contrôle Comptabilité</h2>
 
-<div id="dropZone">Glisse une image ici</div>
+<div id="dropZone">Glisse une image ici (Discord OK)</div>
 
 <input type="file" accept="image/*" onchange="loadFile(event)">
-
 <br>
-
 <img id="preview">
-
 <br><br>
 
 <button onclick="analyser()">Vérifier</button>
@@ -39,7 +40,7 @@ button { padding:10px; margin:5px; background:#ff6600; border:none; border-radiu
 let imageSrc = null;
 
 // ==========================
-// 🔧 CLEAN TEXTE
+// 🔥 CLEAN
 // ==========================
 function clean(txt) {
   return String(txt)
@@ -50,200 +51,106 @@ function clean(txt) {
     .trim();
 }
 
-// ==========================
-// 🔧 NETTOYAGE MONTANT
-// ==========================
 function nettoyerMontant(val) {
-  return Number(
-    String(val)
-      .replace(/\s/g, "")
-      .replace(",", "")
-      .replace(".", "")
-      .replace(/[^\d]/g, "")
-  );
+  return Number(String(val).replace(/[^\d]/g, ""));
 }
 
 // ==========================
-// UPLOAD
+// UPLOAD CLASSIQUE
 // ==========================
 function loadFile(e) {
   const file = e.target.files[0];
+  if (!file) return;
+
   imageSrc = URL.createObjectURL(file);
   preview.src = imageSrc;
 }
 
 // ==========================
-// DRAG DROP
+// 🔥 DRAG & DROP FIX COMPLET
 // ==========================
 const dropZone = document.getElementById("dropZone");
 
-dropZone.ondragover = e => e.preventDefault();
-
-dropZone.ondrop = e => {
+dropZone.addEventListener("dragover", e => {
   e.preventDefault();
-  const file = e.dataTransfer.files[0];
-  imageSrc = URL.createObjectURL(file);
-  preview.src = imageSrc;
-};
+  dropZone.style.borderColor = "green";
+});
+
+dropZone.addEventListener("dragleave", () => {
+  dropZone.style.borderColor = "#ff6600";
+});
+
+dropZone.addEventListener("drop", async e => {
+  e.preventDefault();
+  dropZone.style.borderColor = "#ff6600";
+
+  // 🔥 1. fichiers classiques
+  if (e.dataTransfer.files.length > 0) {
+    const file = e.dataTransfer.files[0];
+    imageSrc = URL.createObjectURL(file);
+    preview.src = imageSrc;
+    return;
+  }
+
+  // 🔥 2. images Discord (URL)
+  const url = e.dataTransfer.getData("text/uri-list");
+
+  if (url) {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      imageSrc = URL.createObjectURL(blob);
+      preview.src = imageSrc;
+    } catch {
+      alert("Impossible de charger l'image (Discord)");
+    }
+  }
+});
 
 // ==========================
-// 🔥 EXTRACTION FINALE
+// 🔥 EXTRACTION CLIENT MULTILIGNE
 // ==========================
 function extraire(txt) {
 
-  // ==========================
-  // 🔥 NORMALISATION
-  // ==========================
   txt = txt.replace(/\r/g, "");
   let lignes = txt.split("\n");
 
-  let blocDetails = "";
+  let bloc = "";
 
   for (let i = 0; i < lignes.length; i++) {
-
     if (lignes[i].toLowerCase().includes("détail")) {
-
-      // 🔥 prendre ligne + suivante
-      blocDetails = lignes[i];
-
-      if (lignes[i + 1]) {
-        blocDetails += " " + lignes[i + 1];
-      }
-
+      bloc = lignes[i] + " " + (lignes[i+1] || "");
       break;
     }
   }
 
-  let ligne = blocDetails || txt;
-  let ligneLower = ligne.toLowerCase();
+  let ligne = bloc || txt;
+  let lower = ligne.toLowerCase();
 
-  // ==========================
-  // 📅 DATE
-  // ==========================
-  let dateMatch = txt.match(/(\d{2}\/\d{2}\/\d{4})/);
-  let date = dateMatch ? dateMatch[1] : "";
-
+  let date = (txt.match(/(\d{2}\/\d{2}\/\d{4})/)||[])[1] || "";
   if (date) {
     let p = date.split("/");
-    date = p[0] + "/" + p[1] + "/" + p[2].slice(-2);
+    date = p[0]+"/"+p[1]+"/"+p[2].slice(-2);
   }
 
-  // ==========================
-  // 👤 VENDEUR
-  // ==========================
   let vendeur = "";
-
-  if (ligneLower.includes("envoyée par")) {
-    let part = ligneLower.split("envoyée par")[1];
-    vendeur = part.split("à")[0] || "";
+  if (lower.includes("envoyée par")) {
+    vendeur = lower.split("envoyée par")[1].split("à")[0];
   }
 
-  // ==========================
-  // 🔥 CLIENT (FIX MULTILIGNE)
-  // ==========================
   let client = "";
-
-  if (ligneLower.includes("à") && ligneLower.includes("pour")) {
-
-    let partApresA = ligneLower.split("à")[1];
-    client = partApresA.split("pour")[0];
-
-    let mots = client.trim().split(" ");
-
-    client = (mots[0] || "") + " " + (mots[1] || "");
+  if (lower.includes("à") && lower.includes("pour")) {
+    let part = lower.split("à")[1].split("pour")[0];
+    let mots = part.trim().split(" ");
+    client = (mots[0]||"")+" "+(mots[1]||"");
   }
 
-  // ==========================
-  // 💰 MONTANT
-  // ==========================
-  let montantMatch = txt.match(/Montant:\s*([\d,\.]+)/i);
-  let montant = montantMatch ? montantMatch[1] : 0;
+  let montant = (txt.match(/Montant:\s*([\d,\.]+)/i)||[])[1] || 0;
 
-  // ==========================
-  // 🧾 FACTURE
-  // ==========================
-  let facture = "";
-  let factureMatch = txt.match(/Note\s*:\s*([A-Z0-9\-]+)/i);
-
-  if (factureMatch) {
-    facture = factureMatch[1];
-  }
+  let facture = (txt.match(/Note\s*:\s*([A-Z0-9\-]+)/i)||[])[1] || "";
 
   return {
-    date: date,
-    vendeur: clean(vendeur),
-    client: clean(client),
-    facture: clean(facture),
-    montant: nettoyerMontant(montant)
-  };
-}
-  // ==========================
-  // 👤 VENDEUR
-  // ==========================
-  let vendeur = "";
-
-  if (ligneLower.includes("envoyée par")) {
-    let part = ligneLower.split("envoyée par")[1];
-    vendeur = part.split("à")[0] || "";
-  }
-
-  // ==========================
-  // 🔥 CLIENT (DÉTAILS UNIQUEMENT)
-  // ==========================
-  let client = "";
-
-  if (ligneLower.includes("à")) {
-
-    let partApresA = ligneLower.split("à")[1];
-
-    if (partApresA.includes("pour")) {
-      partApresA = partApresA.split("pour")[0];
-    }
-
-    let mots = partApresA.trim().split(" ");
-
-    client = (mots[0] || "") + " " + (mots[1] || "");
-  }
-
-  // ==========================
-  // 💰 MONTANT
-  // ==========================
-  let montantMatch = txt.match(/Montant:\s*([\d,\.]+)/i);
-  let montant = montantMatch ? montantMatch[1] : 0;
-
-  // ==========================
-  // 🧾 FACTURE
-  // ==========================
-  let facture = "";
-  let factureMatch = txt.match(/Note\s*:\s*([A-Z0-9\-]+)/i);
-
-  if (factureMatch) {
-    facture = factureMatch[1];
-  }
-
-  return {
-    date: date,
-    vendeur: clean(vendeur),
-    client: clean(client),
-    facture: clean(facture),
-    montant: nettoyerMontant(montant)
-  };
-}
-
-  // MONTANT
-  let montantMatch = txt.match(/Montant:\s*([\d,\.]+)/i);
-  let montant = montantMatch ? montantMatch[1] : 0;
-
-  // FACTURE
-  let facture = "";
-  let factureMatch = txt.match(/Note\s*:\s*([A-Z0-9\-]+)/i);
-
-  if (factureMatch) {
-    facture = factureMatch[1];
-  }
-
-  return {
-    date: date,
+    date,
     vendeur: clean(vendeur),
     client: clean(client),
     facture: clean(facture),
@@ -255,6 +162,11 @@ function extraire(txt) {
 // ANALYSE
 // ==========================
 async function analyser() {
+
+  if (!imageSrc) {
+    alert("Ajoute une image !");
+    return;
+  }
 
   const result = await Tesseract.recognize(imageSrc, 'fra');
   const txt = result.data.text;
@@ -268,26 +180,11 @@ async function analyser() {
 
   const json = await res.json();
 
-  afficherResultat(data, json);
-}
-
-// ==========================
-// AFFICHAGE
-// ==========================
-function afficherResultat(data, res) {
-
-  let type = data.facture ? "Facture prioritaire" : "Client";
-
   document.getElementById("resultat").innerHTML = `
-    <h3>${res.statut}</h3>
-
-    <b>Recherche :</b> ${type}<br><br>
-
+    <h3>${json.statut}</h3>
     Client : ${data.client}<br>
     Facture : ${data.facture}<br>
-    Montant : ${data.montant}<br>
-
-    Lignes : ${res.lignes.join(", ")}
+    Montant : ${data.montant}
   `;
 }
 
