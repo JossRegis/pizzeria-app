@@ -39,7 +39,7 @@ button { padding:10px; margin:5px; background:#ff6600; border:none; border-radiu
 let imageSrc = null;
 
 // ==========================
-// 🔧 NETTOYAGE TEXTE
+// 🔧 CLEAN TEXTE
 // ==========================
 function clean(txt) {
   return String(txt)
@@ -87,11 +87,10 @@ dropZone.ondrop = e => {
 };
 
 // ==========================
-// 🔥 EXTRACTION ULTRA FIABLE
+// 🔥 EXTRACTION FINALE
 // ==========================
 function extraire(txt) {
 
-  // nettoyage OCR
   txt = txt.replace(/\n/g, " ");
   txt = txt.replace(/\s+/g, " ");
 
@@ -113,11 +112,20 @@ function extraire(txt) {
     vendeur = part.split("à")[0] || "";
   }
 
-  // 🔥 CLIENT (FIX DÉFINITIF)
+  // 🔥 CLIENT = 2 mots après "à"
   let client = "";
-  if (txtLower.includes("à") && txtLower.includes("pour")) {
+
+  if (txtLower.includes("à")) {
+
     let partApresA = txtLower.split("à")[1];
-    client = partApresA.split("pour")[0];
+
+    if (partApresA.includes("pour")) {
+      partApresA = partApresA.split("pour")[0];
+    }
+
+    let mots = partApresA.trim().split(" ");
+
+    client = (mots[0] || "") + " " + (mots[1] || "");
   }
 
   // MONTANT
@@ -146,19 +154,10 @@ function extraire(txt) {
 // ==========================
 async function analyser() {
 
-  if (!imageSrc) {
-    alert("Ajoute une image !");
-    return;
-  }
-
   const result = await Tesseract.recognize(imageSrc, 'fra');
   const txt = result.data.text;
 
-  console.log("OCR :", txt);
-
   const data = extraire(txt);
-
-  console.log("DATA :", data);
 
   const res = await fetch("https://script.google.com/macros/s/AKfycbxd0neBvcwoucF8snN2MrXtesc0SIUWqlJsK4aO2fDKhsP2SBPqZirr3iIK-1QB9Lpj/exec", {
     method: "POST",
@@ -175,36 +174,16 @@ async function analyser() {
 // ==========================
 function afficherResultat(data, res) {
 
-  let couleur = "white";
-  let texte = "";
-
-  if (res.statut === "FOUND") {
-    couleur = "green";
-    texte = "✅ OK";
-  } else if (res.statut === "MISMATCH") {
-    couleur = "orange";
-    texte = "⚠️ Montant incorrect";
-  } else {
-    couleur = "red";
-    texte = "❌ Aucun résultat";
-  }
-
-  let typeRecherche = data.facture ? "Facture prioritaire" : "Client";
+  let type = data.facture ? "Facture prioritaire" : "Client";
 
   document.getElementById("resultat").innerHTML = `
-    <h3 style="color:${couleur}">${texte}</h3>
+    <h3>${res.statut}</h3>
 
-    <b>Recherche :</b> ${typeRecherche}<br><br>
+    <b>Recherche :</b> ${type}<br><br>
 
-    Date : ${data.date}<br>
-    Vendeur : ${data.vendeur}<br>
     Client : ${data.client}<br>
     Facture : ${data.facture}<br>
-
-    <hr>
-
-    Montant image : ${data.montant}<br>
-    Total trouvé : ${res.totalSheet}<br>
+    Montant : ${data.montant}<br>
 
     Lignes : ${res.lignes.join(", ")}
   `;
