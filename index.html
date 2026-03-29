@@ -12,6 +12,7 @@ body { background:#111; color:white; font-family:Arial; text-align:center; }
 #dropZone { border:2px dashed #ff6600; padding:40px; margin:20px; border-radius:10px; }
 img { max-width:300px; margin-top:10px; }
 button { padding:10px; margin:5px; background:#ff6600; border:none; border-radius:6px; color:white; }
+#resultat { margin-top:20px; padding:15px; border:1px solid #444; }
 </style>
 </head>
 
@@ -31,20 +32,19 @@ button { padding:10px; margin:5px; background:#ff6600; border:none; border-radiu
 
 <button onclick="analyser()">Vérifier</button>
 
+<div id="resultat"></div>
+
 <script>
 
 let imageSrc = null;
 let listeProduits = [];
 
 // ==========================
-// 🔥 CHARGER PRODUITS
+// CHARGER PRODUITS
 // ==========================
 async function chargerProduits() {
-
   const res = await fetch("https://script.google.com/macros/s/AKfycbxd0neBvcwoucF8snN2MrXtesc0SIUWqlJsK4aO2fDKhsP2SBPqZirr3iIK-1QB9Lpj/exec");
   listeProduits = await res.json();
-
-  console.log("Produits :", listeProduits);
 }
 chargerProduits();
 
@@ -127,20 +127,10 @@ function normaliserProduit(p) {
 // ==========================
 function extraire(txt) {
 
-  // 📅 DATE
-  let dateMatch = txt.match(/Date de l'opération:\s*(\d{2}\/\d{2}\/\d{4})/i);
-  let date = dateMatch ? dateMatch[1] : "";
-
-  // 👤 VENDEUR
+  let date = (txt.match(/Date de l'opération:\s*(\d{2}\/\d{2}\/\d{4})/i) || [])[1] || "";
   let vendeur = (txt.match(/Envoyée par (.+) à/i) || [])[1] || "";
-
-  // 👥 CLIENT
   let client = (txt.match(/à (.+?) pour/i) || [])[1] || "";
-
-  // 💰 MONTANT
   let montant = (txt.match(/Montant:\s*([\d,\.]+)/i) || [])[1] || 0;
-
-  // 🧾 FACTURE
   let facture = (txt.match(/Note\s*:?(\d+)/i) || [])[1] || "";
 
   return {
@@ -172,15 +162,45 @@ async function analyser() {
     body: JSON.stringify(data)
   });
 
-  const text = await res.text();
+  const json = await res.json();
 
-  if (text === "FOUND") {
-    alert("✅ Montant validé !");
-  } else if (text === "MISMATCH") {
-    alert("❌ Montant incorrect !");
+  afficherResultat(data, json);
+}
+
+// ==========================
+// AFFICHAGE
+// ==========================
+function afficherResultat(data, res) {
+
+  let couleur = "#999";
+  let texte = "";
+
+  if (res.statut === "FOUND") {
+    couleur = "green";
+    texte = "✅ OK";
+  } else if (res.statut === "MISMATCH") {
+    couleur = "orange";
+    texte = "⚠️ Montant incorrect";
   } else {
-    alert("❌ Aucune correspondance !");
+    couleur = "red";
+    texte = "❌ Aucun résultat";
   }
+
+  document.getElementById("resultat").innerHTML = `
+    <h3 style="color:${couleur}">${texte}</h3>
+
+    <b>Date :</b> ${data.date}<br>
+    <b>Vendeur :</b> ${data.vendeur}<br>
+    <b>Client :</b> ${data.client}<br>
+    <b>Facture :</b> ${data.facture}<br>
+
+    <hr>
+
+    <b>Montant image :</b> ${data.montant}<br>
+    <b>Total trouvé :</b> ${res.totalSheet}<br>
+
+    <b>Lignes trouvées :</b> ${res.lignes.join(", ")}
+  `;
 }
 
 </script>
