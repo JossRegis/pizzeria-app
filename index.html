@@ -91,12 +91,28 @@ dropZone.ondrop = e => {
 // ==========================
 function extraire(txt) {
 
-  txt = txt.replace(/\n/g, " ");
-  txt = txt.replace(/\s+/g, " ");
+  // ==========================
+  // 🔥 NORMALISATION TEXTE
+  // ==========================
+  txt = txt.replace(/\r/g, "");
+  let lignes = txt.split("\n");
 
-  let txtLower = txt.toLowerCase();
+  let ligneDetails = "";
 
-  // DATE
+  // 🔥 trouver la ligne "Détails"
+  lignes.forEach(l => {
+    if (l.toLowerCase().includes("détail")) {
+      ligneDetails = l;
+    }
+  });
+
+  let ligne = ligneDetails || txt;
+
+  let ligneLower = ligne.toLowerCase();
+
+  // ==========================
+  // 📅 DATE
+  // ==========================
   let dateMatch = txt.match(/(\d{2}\/\d{2}\/\d{4})/);
   let date = dateMatch ? dateMatch[1] : "";
 
@@ -105,19 +121,24 @@ function extraire(txt) {
     date = p[0] + "/" + p[1] + "/" + p[2].slice(-2);
   }
 
-  // VENDEUR
+  // ==========================
+  // 👤 VENDEUR
+  // ==========================
   let vendeur = "";
-  if (txtLower.includes("envoyée par")) {
-    let part = txtLower.split("envoyée par")[1];
+
+  if (ligneLower.includes("envoyée par")) {
+    let part = ligneLower.split("envoyée par")[1];
     vendeur = part.split("à")[0] || "";
   }
 
-  // 🔥 CLIENT = 2 mots après "à"
+  // ==========================
+  // 🔥 CLIENT (DÉTAILS UNIQUEMENT)
+  // ==========================
   let client = "";
 
-  if (txtLower.includes("à")) {
+  if (ligneLower.includes("à")) {
 
-    let partApresA = txtLower.split("à")[1];
+    let partApresA = ligneLower.split("à")[1];
 
     if (partApresA.includes("pour")) {
       partApresA = partApresA.split("pour")[0];
@@ -127,6 +148,31 @@ function extraire(txt) {
 
     client = (mots[0] || "") + " " + (mots[1] || "");
   }
+
+  // ==========================
+  // 💰 MONTANT
+  // ==========================
+  let montantMatch = txt.match(/Montant:\s*([\d,\.]+)/i);
+  let montant = montantMatch ? montantMatch[1] : 0;
+
+  // ==========================
+  // 🧾 FACTURE
+  // ==========================
+  let facture = "";
+  let factureMatch = txt.match(/Note\s*:\s*([A-Z0-9\-]+)/i);
+
+  if (factureMatch) {
+    facture = factureMatch[1];
+  }
+
+  return {
+    date: date,
+    vendeur: clean(vendeur),
+    client: clean(client),
+    facture: clean(facture),
+    montant: nettoyerMontant(montant)
+  };
+}
 
   // MONTANT
   let montantMatch = txt.match(/Montant:\s*([\d,\.]+)/i);
