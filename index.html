@@ -39,12 +39,20 @@ button { padding:10px; margin:5px; background:#ff6600; border:none; border-radiu
 let imageSrc = null;
 
 // ==========================
-// NETTOYAGE MONTANT
+// 🔧 NETTOYAGE TEXTE
+// ==========================
+function clean(txt) {
+  return String(txt)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+// ==========================
+// 🔧 NETTOYAGE MONTANT
 // ==========================
 function nettoyerMontant(val) {
-
-  if (!val) return 0;
-
   return Number(
     String(val)
       .replace(/\s/g, "")
@@ -70,9 +78,8 @@ const dropZone = document.getElementById("dropZone");
 
 dropZone.ondragover = e => e.preventDefault();
 
-dropZone.ondrop = async e => {
+dropZone.ondrop = e => {
   e.preventDefault();
-
   const file = e.dataTransfer.files[0];
   imageSrc = URL.createObjectURL(file);
   preview.src = imageSrc;
@@ -83,11 +90,9 @@ dropZone.ondrop = async e => {
 // ==========================
 function extraire(txt) {
 
-  // date
   let dateMatch = txt.match(/(\d{2}\/\d{2}\/\d{4})/);
   let date = dateMatch ? dateMatch[1] : "";
 
-  // conversion jj/mm/aa
   if (date) {
     let p = date.split("/");
     date = p[0] + "/" + p[1] + "/" + p[2].slice(-2);
@@ -100,9 +105,9 @@ function extraire(txt) {
 
   return {
     date: date,
-    vendeur: vendeur.toLowerCase().trim(),
-    client: client.toLowerCase().trim(),
-    facture: facture,
+    vendeur: clean(vendeur),
+    client: clean(client),
+    facture: clean(facture),
     montant: nettoyerMontant(montant)
   };
 }
