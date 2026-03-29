@@ -84,26 +84,44 @@ dropZone.addEventListener("drop", async e => {
   e.preventDefault();
   dropZone.style.borderColor = "#ff6600";
 
-  // 🔥 1. fichiers classiques
-  if (e.dataTransfer.files.length > 0) {
+  console.log("DROP détecté");
+
+  // ==========================
+  // 🔥 1. FICHIER LOCAL
+  // ==========================
+  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+
     const file = e.dataTransfer.files[0];
+    console.log("Fichier détecté :", file);
+
     imageSrc = URL.createObjectURL(file);
     preview.src = imageSrc;
     return;
   }
 
-  // 🔥 2. images Discord (URL)
-  const url = e.dataTransfer.getData("text/uri-list");
+  // ==========================
+  // 🔥 2. URL (Discord / Web)
+  // ==========================
+  let url = e.dataTransfer.getData("text/uri-list");
 
-  if (url) {
+  if (!url) {
+    url = e.dataTransfer.getData("text/plain");
+  }
+
+  console.log("URL détectée :", url);
+
+  if (url && url.startsWith("http")) {
     try {
       const res = await fetch(url);
       const blob = await res.blob();
       imageSrc = URL.createObjectURL(blob);
       preview.src = imageSrc;
-    } catch {
-      alert("Impossible de charger l'image (Discord)");
+    } catch (err) {
+      alert("Erreur chargement image (Discord)");
+      console.error(err);
     }
+  } else {
+    alert("Aucune image détectée");
   }
 });
 
