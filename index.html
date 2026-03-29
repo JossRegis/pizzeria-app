@@ -35,6 +35,10 @@ button {
   border-radius:6px;
   color:white;
 }
+
+input {
+  margin:10px;
+}
 </style>
 </head>
 
@@ -44,6 +48,10 @@ button {
 
 <div id="dropZone">Glisse une image ici</div>
 
+<input type="file" accept="image/*" onchange="loadFile(event)">
+
+<br>
+
 <img id="preview">
 
 <br><br>
@@ -52,26 +60,66 @@ button {
 
 <script>
 
-let file;
+let imageSrc = null;
+
+// ==========================
+// UPLOAD CLASSIQUE
+// ==========================
+
+function loadFile(e) {
+  const file = e.target.files[0];
+  imageSrc = URL.createObjectURL(file);
+  document.getElementById("preview").src = imageSrc;
+}
+
+// ==========================
+// DRAG & DROP (DISCORD OK)
+// ==========================
 
 const dropZone = document.getElementById("dropZone");
 
 dropZone.ondragover = e => e.preventDefault();
 
-dropZone.ondrop = e => {
+dropZone.ondrop = async e => {
   e.preventDefault();
-  file = e.dataTransfer.files[0];
-  document.getElementById("preview").src = URL.createObjectURL(file);
+
+  const items = e.dataTransfer.items;
+
+  for (let item of items) {
+
+    if (item.kind === "file") {
+      const file = item.getAsFile();
+      imageSrc = URL.createObjectURL(file);
+      preview.src = imageSrc;
+    }
+
+    if (item.kind === "string") {
+      item.getAsString(async (url) => {
+        try {
+          const res = await fetch(url);
+          const blob = await res.blob();
+          imageSrc = URL.createObjectURL(blob);
+          preview.src = imageSrc;
+        } catch {
+          alert("Image Discord non accessible");
+        }
+      });
+    }
+  }
 };
+
+// ==========================
+// ANALYSE
+// ==========================
 
 async function analyser() {
 
-  if (!file) {
+  if (!imageSrc) {
     alert("Ajoute une image !");
     return;
   }
 
-  const result = await Tesseract.recognize(file, 'fra');
+  const result = await Tesseract.recognize(imageSrc, 'fra');
   const txt = result.data.text;
 
   const data = extraire(txt);
@@ -84,7 +132,7 @@ async function analyser() {
   const text = await res.text();
 
   if (text === "FOUND") {
-    alert("✅ Vente trouvée et validée !");
+    alert("✅ Vente validée !");
   } else {
     alert("❌ Vente NON trouvée !");
   }
@@ -103,10 +151,7 @@ function extraire(txt) {
 
   produit = normaliserProduit(produit);
 
-  return {
-    produit,
-    quantite
-  };
+  return { produit, quantite };
 }
 
 // ==========================
